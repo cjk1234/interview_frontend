@@ -1,15 +1,32 @@
 <template>
-  <img alt="Vue logo" src="./assets/logo.png">
-  <HelloWorld msg="Welcome to Your Vue.js App"/>
+  <div id="app">
+    <el-container>
+      <el-header v-if="isAuthenticated">
+        <nav-bar />
+      </el-header>
+      <el-main>
+        <router-view />
+      </el-main>
+    </el-container>
+  </div>
 </template>
 
 <script>
-import HelloWorld from './components/HelloWorld.vue'
+import { computed } from 'vue'
+import { useAuthStore } from '@/stores/auth'
+import NavBar from '@/components/common/NavBar.vue'
 
 export default {
   name: 'App',
   components: {
-    HelloWorld
+    NavBar
+  },
+  setup() {
+    const authStore = useAuthStore()
+    
+    return {
+      isAuthenticated: computed(() => authStore.isAuthenticated)
+    }
   }
 }
 </script>
@@ -19,8 +36,12 @@ export default {
   font-family: Avenir, Helvetica, Arial, sans-serif;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
-  text-align: center;
   color: #2c3e50;
-  margin-top: 60px;
+}
+
+.el-header {
+  padding: 0;
+  background: #409EFF;
+  color: white;
 }
 </style>

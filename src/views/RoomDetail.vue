@@ -123,27 +123,36 @@
       const newMessage = ref('')
       const messagesRef = ref(null)
       const isInRoom = ref(false)
+      
+      // 存储订阅对象，用于取消订阅
+      const subscriptions = ref([])
   
       const userInfo = computed(() => authStore.userInfo)
       const room = computed(() => roomStore.currentRoom)
       const messages = computed(() => roomStore.messages)
-      const participants = ref([])
+      const participants = computed(() => roomStore.participants || [])
   
       const canStartRoom = computed(() => {
-        return room.value?.status === 'WAITING' && userInfo.value?.id === 1 // 假设用户1有权限
+        return room.value?.status === 'WAITING' && userInfo.value?.id === room.value?.creatorId
       })
   
       const canCompleteRoom = computed(() => {
-        return room.value?.status === 'ONGOING' && userInfo.value?.id === 1
+        return room.value?.status === 'ONGOING' && userInfo.value?.id === room.value?.creatorId
       })
   
       onMounted(async () => {
         await joinRoom()
-        setupWebSocket()
+        await setupWebSocket()
         loadMessages()
+        loadParticipants()
       })
   
       onUnmounted(() => {
+        // 取消所有订阅
+        subscriptions.value.forEach(sub => sub?.unsubscribe())
+        subscriptions.value = []
+        
+        // 断开 WebSocket 连接
         webSocketService.disconnect()
       })
   
@@ -151,54 +160,78 @@
         try {
           await roomStore.joinRoom(roomId)
           isInRoom.value = true
-          // 这里应该加载参与者列表
-          participants.value = [
-            { userId: 1, username: '用户1', avatarUrl: '', role: 'LEADER' },
-            { userId: 2, username: '用户2', avatarUrl: '', role: 'MEMBER' }
-          ]
         } catch (error) {
           ElMessage.error('加入房间失败')
           router.push('/rooms')
         }
       }
   
-      const setupWebSocket = () => {
-        const socket = webSocketService.connect(roomId)
-        
-        socket.on('message', (message) => {
-          roomStore.addMessage(message)
-          scrollToBottom()
-        })
+      const setupWebSocket = async () => {
+        try {
+          // 连接 WebSocket
+          await webSocketService.connect(roomId)
+          console.log('WebSocket 连接成功')
   
-        socket.on('user_join', (user) => {
-          ElMessage.info(`${user.username} 加入了房间`)
-          // 更新参与者列表
-        })
-  
-        socket.on('user_leave', (user) => {
-          ElMessage.info(`${user.username} 离开了房间`)
-          // 更新参与者列表
-        })
+          // 订阅各种消息并保存订阅对象
+          const messageSub = webSocketService.onMessage((message) => {
+            roomStore.addMessage(message)
+            scrollToBottom()
+          })
+          
+          const userJoinSub = webSocketService.onUserJoin((user) => {
+            ElMessage.info(`${user.username} 加入了房间`)
+            roomStore.addParticipant(user)
+          })
+          
+          const userLeaveSub = webSocketService.onUserLeave((user) => {
+            ElMessage.info(`${user.username} 离开了房间`)
+            roomStore.removeParticipant(user.userId)
+          })
+          
+          // 保存订阅对象
+          subscriptions.value = [messageSub, userJoinSub, userLeaveSub]
+          
+        } catch (error) {
+          console.error('WebSocket 连接错误：', error)
+          ElMessage.error('实时通信连接失败，请刷新页面重试')
+        }
       }
   
       const loadMessages = async () => {
         try {
-          // 加载历史消息
+          // 这里应该调用 API 加载历史消息
           // const response = await messageApi.getRoomMessages(roomId, 1, 50)
-          // roomStore.messages = response.data
+          // roomStore.setMessages(response.data)
           scrollToBottom()
         } catch (error) {
           ElMessage.error('加载消息失败')
         }
       }
   
+      const loadParticipants = async () => {
+        try {
+          // 这里应该调用 API 加载参与者列表
+          // const response = await roomApi.getRoomParticipants(roomId)
+          // roomStore.setParticipants(response.data)
+        } catch (error) {
+          console.error('加载参与者失败:', error)
+        }
+      }
+  
       const sendMessage = () => {
         if (!newMessage.value.trim()) return
+        if (!webSocketService.stompClient?.connected) {
+          ElMessage.warning('连接未就绪，请稍后重试')
+          return
+        }
   
         const message = {
           userId: userInfo.value.id,
+          username: userInfo.value.username,
+          avatarUrl: userInfo.value.avatarUrl,
           content: newMessage.value.trim(),
-          messageType: 'TEXT'
+          messageType: 'TEXT',
+          roomId: roomId
         }
   
         webSocketService.sendMessage(message)
@@ -215,6 +248,10 @@
   
       const handleLeaveRoom = async () => {
         try {
+          // 先取消订阅和断开连接
+          subscriptions.value.forEach(sub => sub?.unsubscribe())
+          webSocketService.disconnect()
+          
           await roomStore.leaveRoom(roomId)
           ElMessage.success('已离开房间')
           router.push('/rooms')

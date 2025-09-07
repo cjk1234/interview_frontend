@@ -4,14 +4,15 @@ module.exports = defineConfig({
   transpileDependencies: true,
   devServer: {
     port: 3000,
+    host: '0.0.0.0',
     proxy: {
       '/api': {
         target: 'http://localhost:8080',
         changeOrigin: true
       },
-      '/ws': {
+      '/api/ws': {
         target: 'http://localhost:8080',
-        ws: true,
+        ws: true,   // 保持 ws: true 不会影响 HTTP 降级方案的使用
         changeOrigin: true
       }
     }

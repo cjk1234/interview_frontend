@@ -1,5 +1,5 @@
+import { Client } from '@stomp/stompjs'; // 导入 Client 类
 import SockJS from 'sockjs-client';
-import { Stomp } from '@stomp/stompjs'; // 主要使用 Stomp 对象
 
 class WebSocketService {
   constructor() {
@@ -9,43 +9,64 @@ class WebSocketService {
 
   connect(roomId) {
     this.roomId = roomId;
-    // 1. 创建 SockJS 连接 (使用 HTTP 协议)
-    const socket = new SockJS('/ws');
-
-    // 2. 使用 Stomp.over 方法创建 STOMP 客户端
-    this.stompClient = Stomp.over(socket);
-
-    // 3. 禁用心跳（避免与SockJS冲突，简化调试）
-    this.stompClient.heartbeat.outgoing = 0;
-    this.stompClient.heartbeat.incoming = 0;
-
-    // 4. 禁用调试日志（避免控制台输出过多信息）
-    this.stompClient.debug = () => {};
-
-    // 5. 返回一个 Promise，连接成功则resolve，失败则reject
-    return new Promise((resolve, reject) => {
-      this.stompClient.connect(
-        {}, // 连接头，通常为空对象
-        (frame) => { // 成功回调，frame是连接帧信息
-          console.log('STOMP 连接成功', frame);
-          this.joinRoom(roomId); // 连接成功后立即加入房间
-          resolve(this.stompClient); // 将连接成功的客户端传出
-        },
-        (error) => { // 失败回调
-          console.error('STOMP 连接失败：', error);
-          reject(error);
+    
+    // 1. 创建 STOMP 客户端
+    this.stompClient = new Client({
+      // 2. 使用 webSocketFactory 提供 SockJS 实例
+      webSocketFactory: () => new SockJS('/api/ws'),
+      
+      // 3. 连接回调
+      onConnect: (frame) => {
+        // console.log('STOMP 连接成功', frame);
+        this.joinRoom(roomId);
+        if (this.resolveConnect) {
+          this.resolveConnect(this.stompClient);
         }
-      );
+      },
+      
+      // 4. 错误回调
+      onStompError: (frame) => {
+        console.error('STOMP 协议错误：', frame);
+        if (this.rejectConnect) {
+          this.rejectConnect(frame);
+        }
+      },
+      
+      // 5. WebSocket 错误回调
+      onWebSocketError: (error) => {
+        console.error('WebSocket 连接错误：', error);
+        if (this.rejectConnect) {
+          this.rejectConnect(error);
+        }
+      },
+      
+      // 6. 配置选项
+      reconnectDelay: 5000,
+      heartbeatIncoming: 0,
+      heartbeatOutgoing: 0,
+      debug: (str) => {
+        // 可选：控制调试输出
+        // console.log('STOMP:', str);
+      }
+    });
+
+    // 7. 返回 Promise
+    return new Promise((resolve, reject) => {
+      this.resolveConnect = resolve;
+      this.rejectConnect = reject;
+      
+      // 8. 激活连接
+      this.stompClient.activate();
     });
   }
 
+  // 其他方法保持不变...
   joinRoom(roomId) {
     if (this.stompClient && this.stompClient.connected) {
-      this.stompClient.send(
-        '/app/join', // 目标地址，对应后端 @MessageMapping("/join")
-        {}, //  headers头信息（无则必须传空对象{}，不能省略或传null）
-        JSON.stringify({ roomId: roomId }) // 消息体必须是字符串
-      );
+      this.stompClient.publish({
+        destination: '/app/join',
+        body: JSON.stringify({ roomId: roomId })
+      });
       console.log(`已发送加入房间请求: ${roomId}`);
     } else {
       console.warn('STOMP客户端未连接，无法加入房间');
@@ -54,11 +75,10 @@ class WebSocketService {
 
   sendMessage(message) {
     if (this.stompClient && this.stompClient.connected) {
-      this.stompClient.send(
-        '/app/chat',
-        {},
-        JSON.stringify({ ...message, roomId: this.roomId })
-      );
+      this.stompClient.publish({
+        destination: '/app/chat',
+        body: JSON.stringify({ ...message, roomId: this.roomId })
+      });
     } else {
       console.warn('STOMP客户端未连接，无法发送消息');
     }
@@ -66,12 +86,12 @@ class WebSocketService {
 
   onMessage(callback) {
     if (this.stompClient && this.stompClient.connected) {
-      return this.stompClient.subscribe(`/topic/message/${this.roomId}`, (response) => {
+      return this.stompClient.subscribe(`/topic/message/${this.roomId}`, (message) => {
         try {
-          const message = JSON.parse(response.body);
-          callback(message);
+          const data = JSON.parse(message.body);
+          callback(data);
         } catch (e) {
-          console.error('解析消息失败:', e, response.body);
+          console.error('解析消息失败:', e, message.body);
         }
       });
     } else {
@@ -107,15 +127,13 @@ class WebSocketService {
 
   disconnect() {
     if (this.stompClient) {
-      if (this.stompClient.connected) {
-        this.stompClient.disconnect();
+      this.stompClient.deactivate().then(() => {
         console.log('WebSocket 连接已断开');
-      }
+      });
       this.stompClient = null;
     }
     this.roomId = null;
   }
 }
 
-// 导出单例实例
 export const webSocketService = new WebSocketService();

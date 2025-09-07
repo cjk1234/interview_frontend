@@ -12,7 +12,7 @@ module.exports = defineConfig({
       },
       '/api/ws': {
         target: 'http://localhost:8080',
-        ws: true,   // 保持 ws: true 不会影响 HTTP 降级方案的使用
+        ws: false,   // 保持 ws: true 不会影响 HTTP 降级方案的使用
         changeOrigin: true
       }
     }

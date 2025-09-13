@@ -84,7 +84,7 @@
       width="500px"
     >
       <div v-if="selectedRoom" class="room-detail-content">
-        <el-descriptions :column="1" border>
+        <el-descriptions :column="1">
           <el-descriptions-item label="话题标题">
             {{ selectedRoom.topic }}
           </el-descriptions-item>
@@ -283,6 +283,7 @@ export default {
     }
 
     const handleJoinRoom = async (room) => {
+      // 会进入这段代码
       if (!canJoinRoom(room)) {
         ElMessage.warning('无法加入该房间')
         return
@@ -308,7 +309,7 @@ export default {
         const room = await roomStore.createRoom(roomForm.value)
         ElMessage.success('房间创建成功')
         createRoomDialogVisible.value = false
-        router.push(`/room/${room.id}`)
+        // router.push(`/room/${room.id}`)
       } catch (error) {
         ElMessage.error(error.response?.data?.message || '创建房间失败')
       } finally {

@@ -22,7 +22,9 @@ export const useRoomStore = defineStore('room', {
     },
 
     async joinRoom(roomId) {
+      // 会进入这段代码
       const response = await roomApi.joinRoom(roomId)
+      console.log("response.data: ", response.data)
       this.currentRoom = response.data
       return response.data
     },

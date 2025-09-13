@@ -149,7 +149,6 @@
       onMounted(async () => {
         // 添加 beforeunload 事件监听（页面关闭/刷新）
         window.addEventListener('beforeunload', handleBeforeUnload)
-        // window.addEventListener('unload', handleUnload)
         await joinRoom()
         await setupWebSocket()
         loadMessages()
@@ -159,7 +158,6 @@
       onUnmounted(() => {
         // 移除事件监听器
         window.removeEventListener('beforeunload', handleBeforeUnload)
-        // window.removeEventListener('unload', handleUnload)
         // 取消所有订阅
         subscriptions.value.forEach(sub => sub?.unsubscribe())
         subscriptions.value = []

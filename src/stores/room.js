@@ -1,5 +1,6 @@
 import { defineStore } from 'pinia'
 import { roomApi } from '@/services/api'
+import { ElMessage } from 'element-plus'
 
 export const useRoomStore = defineStore('room', {
   state: () => ({
@@ -25,6 +26,7 @@ export const useRoomStore = defineStore('room', {
       // 会进入这段代码
       const response = await roomApi.joinRoom(roomId)
       console.log("response.data: ", response.data)
+
       this.currentRoom = response.data
       return response.data
     },

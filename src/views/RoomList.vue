@@ -290,10 +290,27 @@ export default {
       }
       
       try {
-        await roomStore.joinRoom(room.id)
-        ElMessage.success('加入房间成功')
-        roomDetailVisible.value = false
-        router.push(`/room/${room.id}`)
+        const response_data = await roomStore.joinRoom(room.id)
+        if (response_data.code === 'ROOM_NOT_FOUND') {
+          ElMessage.error('房间不存在')
+          return
+        } else if (response_data.code === 'ROOM_NOT_AVAILABLE') {
+          ElMessage.error('房间开始或已结束')
+          return
+        } else if (response_data.code === 'ROOM_FULL') {
+          ElMessage.error('房间已满')
+          return
+        } else if (response_data.code === 'ALREADY_JOINED_IN_IT') {
+          ElMessage.error('用户已在当前房间中')
+          return
+        } else if (response_data.code === 'ALREADY_JOINED') {
+          ElMessage.error('用户已在其他房间中')
+          return
+        } else {
+          ElMessage.success('加入房间成功')
+          roomDetailVisible.value = false
+          router.push(`/room/${room.id}`)
+        }
       } catch (error) {
         ElMessage.error(error.response?.data?.message || '加入房间失败')
       }

@@ -15,11 +15,97 @@
           <el-button type="success" @click="handleCompleteRoom" v-if="canCompleteRoom">
             结束面试
           </el-button>
+          <el-button 
+            type="warning" 
+            @click="toggleVideo" 
+            v-if="isInRoom && room?.status !== 'COMPLETED'"
+            :icon="videoEnabled ? 'VideoPlay' : 'VideoPause'"
+          >
+            {{ videoEnabled ? '关闭视频' : '开启视频' }}
+          </el-button>
+          <el-button 
+            type="warning" 
+            @click="toggleAudio" 
+            v-if="isInRoom && room?.status !== 'COMPLETED'"
+            :icon="audioEnabled ? 'Microphone' : 'MuteNotification'"
+          >
+            {{ audioEnabled ? '静音' : '取消静音' }}
+          </el-button>
         </div>
       </div>
   
       <el-row :gutter="20">
         <el-col :span="16">
+          <!-- 视频会议区域 -->
+          <el-card class="video-container" v-if="room?.status !== 'COMPLETED'">
+            <template #header>
+              <div class="card-header">
+                <span>视频会议</span>
+                <el-button 
+                  size="small" 
+                  @click="toggleVideoLayout" 
+                  :icon="videoLayout === 'grid' ? 'Menu' : 'Grid'"
+                >
+                  {{ videoLayout === 'grid' ? '切换到演讲者视图' : '切换到网格视图' }}
+                </el-button>
+              </div>
+            </template>
+            <div :class="['video-grid', `layout-${videoLayout}`]">
+              <div 
+                :class="['video-item', { 'active-speaker': false }]"
+              >
+                <video 
+                  ref="localVideoElement"
+                  autoplay 
+                  playsinline
+                  muted
+                  :style="{ 
+                    width: '100%', 
+                    height: '100%', 
+                    objectFit: 'cover',
+                    display: (videoEnabled && localStream) ? 'block' : 'none'
+                  }"
+                ></video>
+                <div class="video-placeholder" v-show="!videoEnabled || !localStream">
+                  <el-avatar :size="60" :src="userInfo?.avatarUrl" />
+                  <p>{{ userInfo?.username }}</p>
+                  <p v-if="!isInRoom" style="color: #909399; font-size: 12px;">
+                    未加入房间
+                  </p>
+                </div>
+                <div class="video-controls">
+                  <el-tag size="small">我</el-tag>
+                  <el-icon :color="audioEnabled ? '#67C23A' : '#F56C6C'" class="audio-indicator">
+                    <Microphone />
+                  </el-icon>
+                </div>
+              </div>
+              <div 
+                v-for="participant in remoteParticipants" 
+                :key="participant.userId"
+                :class="['video-item', { 'active-speaker': participant.isSpeaking }]"
+              >
+                <video 
+                  :ref="el => setVideoElement(el, participant.userId)"
+                  :data-user-id="participant.userId"
+                  autoplay 
+                  playsinline
+                  v-show="participant.hasVideo"
+                ></video>
+                <div class="video-placeholder" v-show="!participant.hasVideo">
+                  <el-avatar :size="60" :src="participant.avatarUrl" />
+                  <p>{{ participant.username }}</p>
+                </div>
+                <div class="video-controls">
+                  <el-tag size="small" v-if="participant.role === 'LEADER'">组长</el-tag>
+                  <el-icon :color="participant.audioEnabled ? '#67C23A' : '#F56C6C'" class="audio-indicator">
+                    <Microphone />
+                  </el-icon>
+                </div>
+              </div>
+            </div>
+          </el-card>
+          <!-- 聊天区域 -->
           <el-card class="chat-container">
             <div class="messages" ref="messagesRef">
               <div
@@ -75,6 +161,9 @@
                   <el-tag size="small" v-if="participant.role === 'LEADER'">
                     组长
                   </el-tag>
+                  <el-tag size="small" type="success" v-if="participant.videoEnabled">
+                    视频中
+                  </el-tag>
                 </div>
               </div>
             </div>
@@ -110,10 +199,19 @@
   import { useAuthStore } from '@/stores/auth'
   import { useRoomStore } from '@/stores/room'
   import { webSocketService } from '@/services/websocket'
-  import { ElMessage } from 'element-plus'
+  import { ElMessage, selectProps } from 'element-plus'
+  import { Microphone, VideoPlay, VideoPause, MuteNotification, Menu, Grid } from '@element-plus/icons-vue'
   
   export default {
     name: 'RoomDetailPage',
+    components: {
+      Microphone,
+      VideoPlay,
+      VideoPause,
+      MuteNotification,
+      Menu,
+      Grid
+    },
     setup() {
       const route = useRoute()
       const router = useRouter()
@@ -123,6 +221,19 @@
       const newMessage = ref('')
       const messagesRef = ref(null)
       const isInRoom = ref(false)
+
+      const videoEnabled = ref(false)
+      const audioEnabled = ref(false)
+      const videoLayout = ref('grid') // grid or speaker
+      const localStream = ref(null)
+
+      const setVideoElement = (el, userId) => {
+        if (el) {
+          videoElements.value.set(userId, el)
+        } else {
+          videoElements.value.delete(userId)
+        }
+      }
       
       // 存储订阅对象，用于取消订阅
       const subscriptions = ref([])
@@ -131,6 +242,47 @@
       const room = computed(() => roomStore.currentRoom)
       const messages = computed(() => roomStore.messages)
       const participants = computed(() => roomStore.participants || [])
+      const localVideoElement = ref(null)     // 本地视频元素引用
+
+      onMounted(async () => {
+        // 添加 beforeunload 事件监听（页面关闭/刷新）
+        window.addEventListener('beforeunload', handleBeforeUnload)
+        await joinRoom()
+        await setupWebSocket()
+        loadMessages()
+        loadParticipants()
+      })
+
+      const remoteParticipants = computed(() => {
+        return participants.value.filter(p => p.userId !== userInfo.value?.id)
+          .map(participant => {
+            const hasVideo = remoteStreams.value.has(participant.userId)
+            return {
+              ...participant,
+              hasVideo,
+              audioEnabled: true // 需要根据实际音频状态调整
+            }
+          })
+      })
+
+      const videoElements = ref(new Map())
+
+      // 添加视频状态的参与者列表
+      const participantsWithVideo = computed(() => {
+        return participants.value.map(participant => {
+          const hasVideo = participant.userId === userInfo.value?.id 
+            ? videoEnabled.value && localStream.value
+            : remoteStreams.value.has(participant.userId)
+          
+          return {
+            ...participant,
+            videoEnabled: hasVideo,
+            audioEnabled: participant.userId === userInfo.value?.id ? audioEnabled.value : true,
+            isSpeaking: false,
+            videoTrack: hasVideo
+          }
+        })
+      })
   
       const canStartRoom = computed(() => {
         return room.value?.status === 'WAITING' && userInfo.value?.id === room.value?.creatorId
@@ -146,15 +298,6 @@
         
       }
 
-      onMounted(async () => {
-        // 添加 beforeunload 事件监听（页面关闭/刷新）
-        window.addEventListener('beforeunload', handleBeforeUnload)
-        await joinRoom()
-        await setupWebSocket()
-        loadMessages()
-        loadParticipants()
-      })
-  
       onUnmounted(() => {
         // 移除事件监听器
         window.removeEventListener('beforeunload', handleBeforeUnload)
@@ -164,6 +307,8 @@
         
         // 断开 WebSocket 连接
         webSocketService.disconnect()
+        // 关闭媒体流
+        stopLocalStream()
       })
   
       const joinRoom = async () => {
@@ -180,12 +325,13 @@
         try {
           // 连接 WebSocket
           await webSocketService.connect(roomId)
-          console.log('WebSocket 连接成功')
-  
+
           // 订阅各种消息并保存订阅对象
           const messageSub = webSocketService.onMessage((message) => {
-            roomStore.addMessage(message)
-            scrollToBottom()
+            if (message.messageType === 'TEXT') {
+              roomStore.addMessage(message)
+              scrollToBottom()
+            }
           })
           
           const userJoinSub = webSocketService.onUserJoin((user) => {
@@ -198,13 +344,143 @@
             roomStore.removeParticipant(user.userId)
           })
           
-          // 保存订阅对象
+          // 保存订阅对象（过滤掉null值）
           subscriptions.value = [messageSub, userJoinSub, userLeaveSub]
+    
+          // 添加WebRTC信令消息监听
+          const webrtcSub = webSocketService.onMessage((message) => {
+            if (message.messageType === 'WEBRTC_SIGNALING') {
+              handleWebRTCSignaling(message)
+            }
+          })
+          subscriptions.value.push(webrtcSub)
           
         } catch (error) {
           console.error('WebSocket 连接错误：', error)
           ElMessage.error('实时通信连接失败，请刷新页面重试')
         }
+      }
+
+      // 在 initMediaDevices 方法中，确保视频元素正确绑定
+      const initMediaDevices = async () => {
+        if (!navigator.mediaDevices || !navigator.mediaDevices.getUserMedia) {
+          ElMessage.warning('您的浏览器不支持视频功能')
+          return
+        }
+        
+        // 停止现有流
+        if (localStream.value) {
+          localStream.value.getTracks().forEach(track => track.stop())
+          localStream.value = null
+        }
+        
+        await nextTick()
+        
+        // 重置视频元素
+        if (localVideoElement.value) {
+          localVideoElement.value.srcObject = null
+        }
+        
+        try {
+          // 开启视频
+          localStream.value = await navigator.mediaDevices.getUserMedia({ 
+            video: videoEnabled.value ? { 
+              width: { ideal: 640 },
+              height: { ideal: 480 }
+            } : false,
+            audio: audioEnabled.value
+          })
+          
+          // 确保视频元素存在
+          if (localVideoElement.value) {
+            
+            // 绑定视频流
+            localVideoElement.value.srcObject = localStream.value
+            localVideoElement.value.muted = true
+            localVideoElement.value.playsInline = true
+            
+            videoEnabled.value = true
+            ElMessage.success('摄像头已开启')
+          }
+          
+        } catch (error) {
+          console.error('无法访问摄像头:', error)
+          videoEnabled.value = false
+          ElMessage.error('无法访问摄像头，请检查权限设置')
+        }
+      }
+
+      // 停止本地媒体流
+      const stopLocalStream = () => {
+        if (localStream.value) {
+          localStream.value.getTracks().forEach(track => track.stop())
+          localStream.value = null
+        }
+      }
+      
+      const toggleVideo = async () => {
+        const newState = !videoEnabled.value
+        
+        // 先更新状态
+        videoEnabled.value = newState
+        await nextTick()
+        if (newState) {
+          // 开启视频
+          await initMediaDevices()
+        } else {
+          // 关闭视频
+          if (localStream.value) {
+            localStream.value.getTracks().forEach(track => track.stop())
+            localStream.value = null
+          }
+          
+          if (localVideoElement.value) {
+            localVideoElement.value.srcObject = null
+          }
+          ElMessage.success('摄像头已关闭')
+        }
+        
+        // 发送状态更新
+        sendVideoStatusUpdate()
+      }
+      
+      const toggleAudio = async () => {
+        audioEnabled.value = !audioEnabled.value
+        
+        if (localStream.value && localStream.value.getAudioTracks().length > 0) {
+          localStream.value.getAudioTracks().forEach(track => {
+            track.enabled = audioEnabled.value
+          })
+        }
+        
+        sendVideoStatusUpdate()
+      }
+
+      // 发送视频状态更新
+      const sendVideoStatusUpdate = () => {
+        if (!webSocketService.stompClient || !webSocketService.stompClient.connected) {
+          console.warn('WebSocket 连接未就绪')
+          return
+        }
+        
+        try {
+          // 使用 webSocketService 的 sendMessage 方法发送状态更新
+          webSocketService.sendMessage({
+            userId: userInfo.value.id,
+            username: userInfo.value.username,
+            messageType: 'VIDEO_STATUS',
+            videoEnabled: videoEnabled.value,
+            audioEnabled: audioEnabled.value,
+            roomId: roomId
+          })
+        } catch (error) {
+          console.error('发送视频状态失败:', error)
+        }
+      }
+      
+      // 切换视频布局
+      const toggleVideoLayout = () => {
+        videoLayout.value = videoLayout.value === 'grid' ? 'speaker' : 'grid'
       }
   
       const loadMessages = async () => {
@@ -227,25 +503,15 @@
           console.error('加载参与者失败:', error)
         }
       }
-  
-      const sendMessage = () => {
-        if (!newMessage.value.trim()) return
+
+      // 修改sendMessage函数，支持发送WebRTC信令
+      const sendMessage = (messageData) => {
         if (!webSocketService.stompClient?.connected) {
           ElMessage.warning('连接未就绪，请稍后重试')
           return
         }
-  
-        const message = {
-          userId: userInfo.value.id,
-          username: userInfo.value.username,
-          avatarUrl: userInfo.value.avatarUrl,
-          content: newMessage.value.trim(),
-          messageType: 'TEXT',
-          roomId: roomId
-        }
-  
-        webSocketService.sendMessage(message)
-        newMessage.value = ''
+
+        webSocketService.sendMessage(messageData)
       }
   
       const scrollToBottom = () => {
@@ -262,6 +528,9 @@
           subscriptions.value.forEach(sub => sub?.unsubscribe())
           webSocketService.disconnect()
           
+          // 关闭媒体流
+          stopLocalStream()
+
           await roomStore.leaveRoom(roomId)
           ElMessage.success('已离开房间')
           router.push('/rooms')
@@ -306,18 +575,37 @@
         room,
         messages,
         participants,
+        participantsWithVideo,
         newMessage,
         messagesRef,
+        videoElements,
         userInfo,
         isInRoom,
+        videoEnabled,
+        audioEnabled,
+        videoLayout,
         canStartRoom,
         canCompleteRoom,
+        remoteParticipants,
+        localStream,
+        localVideoElement,
         sendMessage,
         handleLeaveRoom,
         handleStartRoom,
         handleCompleteRoom,
+        toggleVideo,
+        toggleAudio,
+        toggleVideoLayout,
         getStatusType,
-        formatTime
+        formatTime,
+        setVideoElement,
+        // 图标引用
+        Microphone,
+        VideoPlay,
+        VideoPause,
+        MuteNotification,
+        Menu,
+        Grid
       }
     }
   }
@@ -340,8 +628,74 @@
     color: #409EFF;
   }
   
+  .video-container {
+    height: 50vh;
+    margin-bottom: 20px;
+  }
+
+  .video-grid {
+    display: grid;
+    gap: 10px;
+    min-height: 200px;
+  }
+  
+  .video-grid.layout-grid {
+    grid-template-columns: repeat(auto-fill, minmax(200px, 1fr));
+  }
+  
+  .video-grid.layout-speaker {
+    grid-template-columns: 1fr;
+  }
+  
+  .video-item {
+    position: relative;
+    width: 100%;
+    height: 200px;
+    background: #f0f2f5;
+    border-radius: 8px;
+    overflow: hidden;
+    aspect-ratio: 16/9;
+    display: flex;
+    align-items: center;
+    justify-content: center;
+  }
+  
+  .video-item.active-speaker {
+    box-shadow: 0 0 0 2px #67C23A;
+  }
+  
+  .video-item video {
+    width: 100%;
+    height: 100%;
+    object-fit: cover;
+  }
+  
+  .video-placeholder {
+    display: flex;
+    flex-direction: column;
+    align-items: center;
+    gap: 10px;
+    justify-content: center;
+    width: 100%;
+    height: 100%;
+    color: #606266;
+  }
+  
+  .video-controls {
+    position: absolute;
+    bottom: 10px;
+    left: 10px;
+    display: flex;
+    gap: 5px;
+    align-items: center;
+  }
+  
+  .audio-indicator {
+    font-size: 16px;
+  }
+
   .chat-container {
-    height: 70vh;
+    height: 40vh;
     display: flex;
     flex-direction: column;
   }

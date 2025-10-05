@@ -12,30 +12,69 @@ export const useRoomStore = defineStore('room', {
 
   actions: {
     async fetchRooms() {
-      const response = await roomApi.getAvailableRooms()
-      this.rooms = response.data
+      try {
+        const response = await roomApi.getAvailableRooms()
+        this.rooms = response.data
+        return response.data
+      } catch (error) {
+        ElMessage.error('获取房间列表失败，请稍后重试')
+        throw error
+      }
     },
 
     async createRoom(roomData) {
-      const response = await roomApi.createRoom(roomData)
-      this.rooms.push(response.data)
-      return response.data
+      try {
+        const response = await roomApi.createRoom(roomData)
+        this.rooms.push(response.data)
+        return response.data
+      } catch (error) {
+        ElMessage.error('创建房间失败，请稍后重试')
+        throw error
+      }
+    },
+
+    async getRoom(roomId) {
+      try {
+        const response = await roomApi.getRoomDetail(roomId)
+        this.currentRoom = response.data
+        return this.currentRoom
+      } catch (error) {
+        ElMessage.error('获取房间详情失败，请稍后重试')
+        throw error
+      }
     },
 
     async joinRoom(roomId) {
       // 会进入这段代码
-      const response = await roomApi.joinRoom(roomId)
-      console.log("response.data: ", response.data)
+      try {
+        const response = await roomApi.joinRoom(roomId)
+        // console.log('joinRoom response', response)
 
-      this.currentRoom = response.data
-      return response.data
+        const responseRoom = await roomApi.getRoomDetail(roomId)
+        this.currentRoom = responseRoom.data
+        // console.log('this.currentRoom', this.currentRoom)
+
+        const responseParticipants = await roomApi.getRoomParticipants(roomId)
+        this.participants = responseParticipants.data
+        // console.log('this.participants', this.participants)
+
+        return response.data
+      } catch (error) {
+        ElMessage.error('加入房间失败，请稍后重试')
+        throw error
+      }
     },
 
     async leaveRoom(roomId) {
-      await roomApi.leaveRoom(roomId)
-      this.currentRoom = null
-      this.messages = []
-      this.participants = []
+      try {
+          await roomApi.leaveRoom(roomId)
+          this.currentRoom = null
+          this.messages = []
+          this.participants = []
+      } catch (error) {
+          ElMessage.error('离开房间失败，请稍后重试')
+          throw error
+      }
     },
 
     addMessage(message) {

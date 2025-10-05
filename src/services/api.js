@@ -51,7 +51,8 @@ export const roomApi = {
   leaveRoom: (roomId) => apiClient.post(`/room/${roomId}/leave`),
   getRoomDetail: (roomId) => apiClient.get(`/room/${roomId}`),
   startRoom: (roomId) => apiClient.post(`/room/${roomId}/start`),
-  completeRoom: (roomId) => apiClient.post(`/room/${roomId}/complete`)
+  completeRoom: (roomId) => apiClient.post(`/room/${roomId}/complete`),
+  getRoomParticipants: (roomId) => apiClient.get(`/room/${roomId}/getRoomParticipants`)
 }
 
 export const messageApi = {

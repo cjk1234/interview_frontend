@@ -41,8 +41,8 @@
             <template #header>
               <div class="card-header">
                 <span>视频会议</span>
-                <el-button 
-                  size="small" 
+                <el-button style="margin-left: 1%;"
+                  size="large" 
                   @click="toggleVideoLayout" 
                   :icon="videoLayout === 'grid' ? 'Menu' : 'Grid'"
                 >
@@ -568,7 +568,7 @@
   
       const formatTime = (time) => {
         if (!time) return ''
-        return new Date(time).toLocaleTimeString()
+        return new Date(time).toLocaleString()
       }
   
       return {
@@ -629,14 +629,16 @@
   }
   
   .video-container {
-    height: 50vh;
-    margin-bottom: 20px;
+    height: 60vh;
+    display: flex;
+    flex-direction: column;
   }
 
   .video-grid {
     display: grid;
     gap: 10px;
     min-height: 200px;
+    flex: 1;
   }
   
   .video-grid.layout-grid {
@@ -644,13 +646,14 @@
   }
   
   .video-grid.layout-speaker {
-    grid-template-columns: 1fr;
+    grid-template-columns: 0.7fr;
+    grid-auto-rows: 1fr;
   }
   
   .video-item {
     position: relative;
     width: 100%;
-    height: 200px;
+    height: 100%;
     background: #f0f2f5;
     border-radius: 8px;
     overflow: hidden;
@@ -813,6 +816,7 @@
   
   .card-header {
     font-weight: bold;
+    font-size: 20px;
     color: #409EFF;
   }
   </style>

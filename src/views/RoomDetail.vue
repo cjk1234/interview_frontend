@@ -90,11 +90,12 @@
                   :data-user-id="participant.userId"
                   autoplay 
                   playsinline
+                  muted
                   v-show="participant.hasVideo"
                 ></video>
                 <div class="video-placeholder" v-show="!participant.hasVideo">
                   <el-avatar :size="60" :src="participant.avatarUrl" />
-                  <p>{{ participant.username }}</p>
+                  <p>{{ participant.userName }}</p>
                 </div>
                 <div class="video-controls">
                   <el-tag size="small" v-if="participant.role === 'LEADER'">组长</el-tag>
@@ -157,7 +158,7 @@
               >
                 <el-avatar :size="40" :src="participant.avatarUrl" />
                 <div class="participant-info">
-                  <span class="participant-name">{{ participant.username }}</span>
+                  <span class="participant-name">{{ participant.userName }}</span>
                   <el-tag size="small" v-if="participant.role === 'LEADER'">
                     组长
                   </el-tag>
@@ -227,13 +228,6 @@
       const videoLayout = ref('grid') // grid or speaker
       const localStream = ref(null)
 
-      const setVideoElement = (el, userId) => {
-        if (el) {
-          videoElements.value.set(userId, el)
-        } else {
-          videoElements.value.delete(userId)
-        }
-      }
       
       // 存储订阅对象，用于取消订阅
       const subscriptions = ref([])
@@ -243,6 +237,9 @@
       const messages = computed(() => roomStore.messages)
       const participants = computed(() => roomStore.participants || [])
       const localVideoElement = ref(null)     // 本地视频元素引用
+
+      const remoteStreams = ref(new Map()) // 存储远程用户的视频流
+      const peerConnections = ref(new Map())
 
       onMounted(async () => {
         // 添加 beforeunload 事件监听（页面关闭/刷新）
@@ -254,6 +251,7 @@
       })
 
       const remoteParticipants = computed(() => {
+        console.log("participants: ", participants)
         return participants.value.filter(p => p.userId !== userInfo.value?.id)
           .map(participant => {
             const hasVideo = remoteStreams.value.has(participant.userId)
@@ -267,6 +265,13 @@
 
       const videoElements = ref(new Map())
 
+      const setVideoElement = (el, userId) => {
+        if (el) {
+          videoElements.value.set(userId, el)
+        } else {
+          videoElements.value.delete(userId)
+        }
+      }
       // 添加视频状态的参与者列表
       const participantsWithVideo = computed(() => {
         return participants.value.map(participant => {

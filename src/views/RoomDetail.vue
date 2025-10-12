@@ -251,7 +251,6 @@
       })
 
       const remoteParticipants = computed(() => {
-        console.log("participants: ", participants)
         return participants.value.filter(p => p.userId !== userInfo.value?.id)
           .map(participant => {
             const hasVideo = remoteStreams.value.has(participant.userId)

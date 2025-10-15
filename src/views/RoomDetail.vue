@@ -339,12 +339,12 @@
           })
           
           const userJoinSub = webSocketService.onUserJoin((user) => {
-            ElMessage.info(`${user.username} 加入了房间`)
+            ElMessage.info(`${user.userName} 加入了房间`)
             roomStore.addParticipant(user)
           })
           
           const userLeaveSub = webSocketService.onUserLeave((user) => {
-            ElMessage.info(`${user.username} 离开了房间`)
+            ElMessage.info(`${user.userName} 离开了房间`)
             roomStore.removeParticipant(user.userId)
           })
           

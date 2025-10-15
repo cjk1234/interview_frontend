@@ -102,9 +102,11 @@ class WebSocketService {
   onUserJoin(callback) {
     if (this.stompClient && this.stompClient.connected) {
       return this.stompClient.subscribe(`/topic/userJoin/${this.roomId}`, (response) => {
+        // console.log('Received userJoin message:', response);
         try {
           const data = JSON.parse(response.body);
           callback(data);
+          // console.log('Parsed userJoin data:', data);
         } catch (e) {
           console.error('解析用户加入消息失败:', e);
         }
@@ -115,9 +117,11 @@ class WebSocketService {
   onUserLeave(callback) {
     if (this.stompClient && this.stompClient.connected) {
       return this.stompClient.subscribe(`/topic/userLeave/${this.roomId}`, (response) => {
+        // console.log('Received userLeave message:', response);
         try {
           const data = JSON.parse(response.body);
           callback(data);
+          // console.log('Parsed userLeave data:', data);
         } catch (e) {
           console.error('解析用户离开消息失败:', e);
         }

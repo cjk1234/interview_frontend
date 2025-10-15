@@ -33,17 +33,6 @@ export const useRoomStore = defineStore('room', {
       }
     },
 
-    async getRoom(roomId) {
-      try {
-        const response = await roomApi.getRoomDetail(roomId)
-        this.currentRoom = response.data
-        return this.currentRoom
-      } catch (error) {
-        ElMessage.error('获取房间详情失败，请稍后重试')
-        throw error
-      }
-    },
-
     async joinRoom(roomId) {
       // 会进入这段代码
       try {
@@ -75,6 +64,15 @@ export const useRoomStore = defineStore('room', {
           ElMessage.error('离开房间失败，请稍后重试')
           throw error
       }
+    },
+
+    addParticipant(participant) {
+      this.participants.push(participant)
+      console.log('Current participants:', this.participants)
+    },
+
+    removeParticipant(userId) {
+      this.participants = this.participants.filter(p => p.userId !== userId)
     },
 
     addMessage(message) {

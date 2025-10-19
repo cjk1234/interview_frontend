@@ -443,9 +443,6 @@
           }
           ElMessage.success('摄像头已关闭')
         }
-        
-        // 发送状态更新
-        sendVideoStatusUpdate()
       }
       
       const toggleAudio = async () => {
@@ -455,30 +452,6 @@
           localStream.value.getAudioTracks().forEach(track => {
             track.enabled = audioEnabled.value
           })
-        }
-        
-        sendVideoStatusUpdate()
-      }
-
-      // 发送视频状态更新
-      const sendVideoStatusUpdate = () => {
-        if (!webSocketService.stompClient || !webSocketService.stompClient.connected) {
-          console.warn('WebSocket 连接未就绪')
-          return
-        }
-        
-        try {
-          // 使用 webSocketService 的 sendMessage 方法发送状态更新
-          webSocketService.sendMessage({
-            userId: userInfo.value.id,
-            username: userInfo.value.username,
-            messageType: 'VIDEO_STATUS',
-            videoEnabled: videoEnabled.value,
-            audioEnabled: audioEnabled.value,
-            roomId: roomId
-          })
-        } catch (error) {
-          console.error('发送视频状态失败:', error)
         }
       }
       

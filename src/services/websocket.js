@@ -76,8 +76,8 @@ class WebSocketService {
   sendMessage(message) {
     if (this.stompClient && this.stompClient.connected) {
       this.stompClient.publish({
-        destination: '/app/chat',
-        body: JSON.stringify({ ...message, roomId: this.roomId })
+        destination: `/app/chat/${this.roomId}`,
+        body: JSON.stringify({ roomId: this.roomId, ...message })
       });
     } else {
       console.warn('STOMP客户端未连接，无法发送消息');

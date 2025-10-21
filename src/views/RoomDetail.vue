@@ -350,14 +350,6 @@
           
           // 保存订阅对象（过滤掉null值）
           subscriptions.value = [messageSub, userJoinSub, userLeaveSub]
-    
-          // 添加WebRTC信令消息监听
-          const webrtcSub = webSocketService.onMessage((message) => {
-            if (message.messageType === 'WEBRTC_SIGNALING') {
-              handleWebRTCSignaling(message)
-            }
-          })
-          subscriptions.value.push(webrtcSub)
           
         } catch (error) {
           console.error('WebSocket 连接错误：', error)
@@ -482,13 +474,22 @@
       }
 
       // 修改sendMessage函数，支持发送WebRTC信令
-      const sendMessage = (messageData) => {
+      const sendMessage = () => {
         if (!webSocketService.stompClient?.connected) {
           ElMessage.warning('连接未就绪，请稍后重试')
           return
         }
-
-        webSocketService.sendMessage(messageData)
+        console.log('Sending message:', newMessage.value)
+        const message = {
+          userId: userInfo.value.id,
+          roomId: roomId,
+          username: userInfo.value.username,
+          avatarUrl: userInfo.value.avatarUrl,
+          content: newMessage.value.trim(),
+          messageType: 'TEXT',
+          createdAt: new Date().toISOString()
+        }
+        webSocketService.sendMessage(message)
       }
   
       const scrollToBottom = () => {

@@ -247,7 +247,6 @@
         await joinRoom()
         await setupWebSocket()
         loadMessages()
-        loadParticipants()
       })
 
       const remoteParticipants = computed(() => {
@@ -462,16 +461,6 @@
           ElMessage.error('加载消息失败')
         }
       }
-  
-      const loadParticipants = async () => {
-        try {
-          // 这里应该调用 API 加载参与者列表
-          // const response = await roomApi.getRoomParticipants(roomId)
-          // roomStore.setParticipants(response.data)
-        } catch (error) {
-          console.error('加载参与者失败:', error)
-        }
-      }
 
       // 修改sendMessage函数，支持发送WebRTC信令
       const sendMessage = () => {
@@ -481,8 +470,8 @@
         }
         console.log('Sending message:', newMessage.value)
         const message = {
-          userId: userInfo.value.id,
           roomId: roomId,
+          userId: userInfo.value.id,
           username: userInfo.value.username,
           avatarUrl: userInfo.value.avatarUrl,
           content: newMessage.value.trim(),

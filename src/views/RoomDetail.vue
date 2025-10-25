@@ -50,61 +50,64 @@
                 </el-button>
               </div>
             </template>
-            <div :class="['video-grid', `layout-${videoLayout}`]">
-              <div 
-                :class="['video-item', { 'active-speaker': false }]"
-              >
-                <video 
-                  ref="localVideoElement"
-                  autoplay 
-                  playsinline
-                  muted
-                  :style="{ 
-                    width: '100%', 
-                    height: '100%', 
-                    objectFit: 'cover',
-                    display: (videoEnabled && localStream) ? 'block' : 'none'
-                  }"
-                ></video>
-                <div class="video-placeholder" v-show="!videoEnabled || !localStream">
-                  <el-avatar :size="60" :src="userInfo?.avatarUrl" />
-                  <p>{{ userInfo?.username }}</p>
-                  <p v-if="!isInRoom" style="color: #909399; font-size: 12px;">
-                    未加入房间
-                  </p>
+            <div class="video-content">
+              <div :class="['video-grid', `layout-${videoLayout}`]">
+                <div 
+                  :class="['video-item', { 'active-speaker': false }]"
+                >
+                  <video 
+                    ref="localVideoElement"
+                    autoplay 
+                    playsinline
+                    muted
+                    :style="{ 
+                      width: '100%', 
+                      height: '100%', 
+                      objectFit: 'cover',
+                      display: (videoEnabled && localStream) ? 'block' : 'none'
+                    }"
+                  ></video>
+                  <div class="video-placeholder" v-show="!videoEnabled || !localStream">
+                    <el-avatar :size="60" :src="userInfo?.avatarUrl" />
+                    <p>{{ userInfo?.username }}</p>
+                    <p v-if="!isInRoom" style="color: #909399; font-size: 12px;">
+                      未加入房间
+                    </p>
+                  </div>
+                  <div class="video-controls">
+                    <el-tag size="small">我</el-tag>
+                    <el-icon :color="audioEnabled ? '#67C23A' : '#F56C6C'" class="audio-indicator">
+                      <Microphone />
+                    </el-icon>
+                  </div>
                 </div>
-                <div class="video-controls">
-                  <el-tag size="small">我</el-tag>
-                  <el-icon :color="audioEnabled ? '#67C23A' : '#F56C6C'" class="audio-indicator">
-                    <Microphone />
-                  </el-icon>
-                </div>
-              </div>
-              <div 
-                v-for="participant in remoteParticipants" 
-                :key="participant.userId"
-                :class="['video-item', { 'active-speaker': participant.isSpeaking }]"
-              >
-                <video 
-                  :ref="el => setVideoElement(el, participant.userId)"
-                  :data-user-id="participant.userId"
-                  autoplay 
-                  playsinline
-                  muted
-                  v-show="participant.hasVideo"
-                ></video>
-                <div class="video-placeholder" v-show="!participant.hasVideo">
-                  <el-avatar :size="60" :src="participant.avatarUrl" />
-                  <p>{{ participant.userName }}</p>
-                </div>
-                <div class="video-controls">
-                  <el-tag size="small" v-if="participant.role === 'LEADER'">组长</el-tag>
-                  <el-icon :color="participant.audioEnabled ? '#67C23A' : '#F56C6C'" class="audio-indicator">
-                    <Microphone />
-                  </el-icon>
+                <div 
+                  v-for="participant in remoteParticipants" 
+                  :key="participant.userId"
+                  :class="['video-item', { 'active-speaker': participant.isSpeaking }]"
+                >
+                  <video 
+                    :ref="el => setVideoElement(el, participant.userId)"
+                    :data-user-id="participant.userId"
+                    autoplay 
+                    playsinline
+                    muted
+                    v-show="participant.hasVideo"
+                  ></video>
+                  <div class="video-placeholder" v-show="!participant.hasVideo">
+                    <el-avatar :size="60" :src="participant.avatarUrl" />
+                    <p>{{ participant.userName }}</p>
+                  </div>
+                  <div class="video-controls">
+                    <el-tag size="small" v-if="participant.role === 'LEADER'">组长</el-tag>
+                    <el-icon :color="participant.audioEnabled ? '#67C23A' : '#F56C6C'" class="audio-indicator">
+                      <Microphone />
+                    </el-icon>
+                  </div>
                 </div>
               </div>
             </div>
+
           </el-card>
           <!-- 聊天区域 -->
           <el-card class="chat-container">
@@ -333,7 +336,6 @@
           const messageSub = webSocketService.onMessage((message) => {
             if (message.messageType === 'TEXT') {
               roomStore.addMessage(message)
-              scrollToBottom()
             }
           })
           
@@ -456,7 +458,6 @@
           // 这里应该调用 API 加载历史消息
           // const response = await messageApi.getRoomMessages(roomId, 1, 50)
           // roomStore.setMessages(response.data)
-          scrollToBottom()
         } catch (error) {
           ElMessage.error('加载消息失败')
         }
@@ -479,14 +480,7 @@
           createdAt: new Date().toISOString()
         }
         webSocketService.sendMessage(message)
-      }
-  
-      const scrollToBottom = () => {
-        nextTick(() => {
-          if (messagesRef.value) {
-            messagesRef.value.scrollTop = messagesRef.value.scrollHeight
-          }
-        })
+        newMessage.value = ''
       }
   
       const handleLeaveRoom = async () => {
@@ -599,13 +593,22 @@
     height: 60vh;
     display: flex;
     flex-direction: column;
+    margin-bottom: 20px;
+  }
+
+  .video-content {
+    flex: 1;
+    overflow-y: auto;
+    padding: 10px;
+    min-height: 200px;
+    max-height: calc(60vh - 120px);
   }
 
   .video-grid {
     display: grid;
     gap: 10px;
     min-height: 200px;
-    flex: 1;
+    /* flex: 1; */
   }
   
   .video-grid.layout-grid {
@@ -613,8 +616,8 @@
   }
   
   .video-grid.layout-speaker {
-    grid-template-columns: 0.7fr;
-    grid-auto-rows: 1fr;
+    grid-template-columns: 1fr;
+    grid-auto-rows: minmax(200px, 1fr);
   }
   
   .video-item {
@@ -672,8 +675,14 @@
   
   .messages {
     flex: 1;
-    overflow-y: auto;
+    overflow-y: auto; /* 必须设置为auto或scroll */
+    overflow-x: hidden; /* 防止水平滚动 */
     padding: 10px;
+    /* min-height: 200px; */
+    max-height: calc(40vh - 100px); /* 减去输入框高度 */
+    display: flex;
+    flex-direction: column;
+    gap: 10px;
   }
   
   .message {

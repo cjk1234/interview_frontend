@@ -132,9 +132,11 @@
   
             <div class="message-input">
               <el-input
+                ref="messageInput"
                 v-model="newMessage"
                 placeholder="输入消息..."
                 @keyup.enter="sendMessage"
+                @input="handleInputChange"
               >
                 <template #append>
                   <el-button @click="sendMessage" :disabled="!newMessage.trim()">
@@ -142,6 +144,20 @@
                   </el-button>
                 </template>
               </el-input>
+              <div 
+                v-if="showParticipantList" 
+                class="participant-list"
+                @mousedown.prevent 
+              >
+                <div 
+                  v-for="participant in filteredParticipants" 
+                  :key="participant.id"
+                  class="participant-item"
+                  @click="selectParticipant(participant)"
+                >
+                  {{ participant.userName }}
+                </div>
+              </div>
             </div>
           </el-card>
         </el-col>
@@ -203,7 +219,7 @@
   import { useAuthStore } from '@/stores/auth'
   import { useRoomStore } from '@/stores/room'
   import { webSocketService } from '@/services/websocket'
-  import { ElMessage, selectProps } from 'element-plus'
+  import { ElMessage } from 'element-plus'
   import { Microphone, VideoPlay, VideoPause, MuteNotification, Menu, Grid } from '@element-plus/icons-vue'
   
   export default {
@@ -223,6 +239,11 @@
       const roomStore = useRoomStore()
       const roomId = parseInt(route.params.id)
       const newMessage = ref('')
+
+      const showParticipantList = ref(false)
+      const searchKeyword = ref('')
+      const messageInput = ref(null)
+
       const messagesRef = ref(null)
       const isInRoom = ref(false)
 
@@ -463,6 +484,29 @@
         }
       }
 
+      const filteredParticipants = computed(() => {
+        return participants.value.filter(p => p.userId !== userInfo.value?.id)
+      })
+
+      // 监听输入变化
+      const handleInputChange = (value) => {
+        // 如果inputElement最后一个字符是@，则显示列表
+        if (value.endsWith('@')) {
+          showParticipantList.value = true
+          searchKeyword.value = ''
+          return
+        }
+        showParticipantList.value = false
+        searchKeyword.value = ''
+      }
+
+      // 选择参与者
+      const selectParticipant = (participant) => {
+        newMessage.value += `${participant.userName} `
+        showParticipantList.value = false
+        searchKeyword.value = ''
+      }
+
       // 修改sendMessage函数，支持发送WebRTC信令
       const sendMessage = () => {
         if (!webSocketService.stompClient?.connected) {
@@ -551,6 +595,11 @@
         localStream,
         localVideoElement,
         sendMessage,
+        showParticipantList,
+        filteredParticipants,
+        messageInput,
+        handleInputChange,
+        selectParticipant,
         handleLeaveRoom,
         handleStartRoom,
         handleCompleteRoom,
@@ -673,6 +722,32 @@
     flex-direction: column;
   }
   
+  .message-input {
+    position: relative;
+  }
+
+  .participant-list {
+    background: rgb(254, 254, 254);
+    overflow-y: auto;
+    box-shadow: 0 2px 12px 0 rgba(0, 0, 0, 0.1);
+    flex-direction: column;
+    display: flex;
+  }
+
+  .participant-item {
+    padding: 8px 12px;
+    cursor: pointer;
+    font-size: 14px;
+  }
+
+  .participant-item:hover {
+    background-color: #f5f7fa;
+  }
+
+  .participant-item:last-child {
+    border-bottom: none;
+  }
+
   .messages {
     flex: 1;
     overflow-y: auto; /* 必须设置为auto或scroll */

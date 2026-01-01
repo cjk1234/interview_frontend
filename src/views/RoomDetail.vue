@@ -263,7 +263,6 @@
       const localVideoElement = ref(null)     // 本地视频元素引用
 
       const remoteStreams = ref(new Map()) // 存储远程用户的视频流
-      const peerConnections = ref(new Map())
 
       onMounted(async () => {
         // 添加 beforeunload 事件监听（页面关闭/刷新）
@@ -350,29 +349,31 @@
   
       const setupWebSocket = async () => {
         try {
-          // 连接 WebSocket
           await webSocketService.connect(roomId)
 
-          // 订阅各种消息并保存订阅对象
+          // 订阅文本消息
           const messageSub = webSocketService.onMessage((message) => {
             if (message.messageType === 'TEXT') {
               roomStore.addMessage(message)
             }
           })
           
+          // 订阅用户加入
           const userJoinSub = webSocketService.onUserJoin((user) => {
             ElMessage.info(`${user.userName} 加入了房间`)
             roomStore.addParticipant(user)
+            roomStore.updateRoom(roomId)
           })
           
+          // 订阅用户离开
           const userLeaveSub = webSocketService.onUserLeave((user) => {
             ElMessage.info(`${user.userName} 离开了房间`)
             roomStore.removeParticipant(user.userId)
+            roomStore.updateRoom(roomId)
           })
           
           // 保存订阅对象（过滤掉null值）
-          subscriptions.value = [messageSub, userJoinSub, userLeaveSub]
-          
+          subscriptions.value = [messageSub, userJoinSub, userLeaveSub].filter(Boolean)
         } catch (error) {
           console.error('WebSocket 连接错误：', error)
           ElMessage.error('实时通信连接失败，请刷新页面重试')

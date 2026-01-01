@@ -5,6 +5,8 @@ class WebSocketService {
   constructor() {
     this.stompClient = null;
     this.roomId = null;
+    this.resolveConnect = null;
+    this.rejectConnect = null;
   }
 
   connect(roomId) {
@@ -17,7 +19,6 @@ class WebSocketService {
       
       // 3. 连接回调
       onConnect: (frame) => {
-        // console.log('STOMP 连接成功', frame);
         this.joinRoom(roomId);
         if (this.resolveConnect) {
           this.resolveConnect(this.stompClient);
@@ -45,7 +46,6 @@ class WebSocketService {
       heartbeatIncoming: 0,
       heartbeatOutgoing: 0,
       debug: (str) => {
-        // 可选：控制调试输出
         // console.log('STOMP:', str);
       }
     });
@@ -54,13 +54,16 @@ class WebSocketService {
     return new Promise((resolve, reject) => {
       this.resolveConnect = resolve;
       this.rejectConnect = reject;
-      
       // 8. 激活连接
       this.stompClient.activate();
     });
   }
 
   // 其他方法保持不变...
+  isConnected() {
+    return this.stompClient && this.stompClient.connected;
+  }
+
   joinRoom(roomId) {
     if (this.stompClient && this.stompClient.connected) {
       this.stompClient.publish({
@@ -106,7 +109,6 @@ class WebSocketService {
         try {
           const data = JSON.parse(response.body);
           callback(data);
-          // console.log('Parsed userJoin data:', data);
         } catch (e) {
           console.error('解析用户加入消息失败:', e);
         }
@@ -137,6 +139,8 @@ class WebSocketService {
       this.stompClient = null;
     }
     this.roomId = null;
+    this.resolveConnect = null;
+    this.rejectConnect = null;
   }
 }
 

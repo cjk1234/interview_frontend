@@ -33,20 +33,33 @@ export const useRoomStore = defineStore('room', {
       }
     },
 
+    async updateRoom(roomId) {
+      // 获取房间详情 - 确保是响应式对象
+      const responseRoom = await roomApi.getRoomDetail(roomId)
+      // 使用 Object.assign 或展开运算符确保响应式
+      this.currentRoom = { ...responseRoom.data }
+
+      // 获取参与者
+      const responseParticipants = await roomApi.getRoomParticipants(roomId)
+      this.participants = [...responseParticipants.data]
+
+      // 检查是否满员并开始。这里可能有问题，因为参与者可能在你获取后发生了变化，更好的做法是由服务器推送状态变化
+      if (this.participants.length >= this.currentRoom.maxParticipants) {
+        await roomApi.startRoom(roomId)
+        this.currentRoom.status = 'ONGOING'
+      } else if (this.participants.length === 0) {
+        await roomApi.completeRoom(roomId)
+        this.currentRoom.status = 'COMPLETED'
+        // this.participants = []
+      }
+    },
+
     async joinRoom(roomId) {
       // 会进入这段代码
       try {
+        // 加入房间
         const response = await roomApi.joinRoom(roomId)
-        // console.log('joinRoom response', response)
-
-        const responseRoom = await roomApi.getRoomDetail(roomId)
-        this.currentRoom = responseRoom.data
-        // console.log('this.currentRoom', this.currentRoom)
-
-        const responseParticipants = await roomApi.getRoomParticipants(roomId)
-        this.participants = responseParticipants.data
-        // console.log('this.participants', this.participants)
-
+        await this.updateRoom(roomId)
         return response.data
       } catch (error) {
         ElMessage.error('加入房间失败，请稍后重试')
@@ -56,30 +69,28 @@ export const useRoomStore = defineStore('room', {
 
     async leaveRoom(roomId) {
       try {
-          await roomApi.leaveRoom(roomId)
-          this.currentRoom = null
-          this.messages = []
-          this.participants = []
+        await roomApi.leaveRoom(roomId)
+        await this.updateRoom(roomId)
+        this.messages = []
       } catch (error) {
-          ElMessage.error('离开房间失败，请稍后重试')
-          throw error
+        ElMessage.error('离开房间失败，请稍后重试')
+        throw error
       }
     },
 
-    addParticipant(participant) {
+    async addParticipant(participant) {
       this.participants.push(participant)
-      console.log('Current participants:', this.participants)
     },
 
-    removeParticipant(userId) {
+    async removeParticipant(userId) {
       this.participants = this.participants.filter(p => p.userId !== userId)
     },
 
-    addMessage(message) {
+    async addMessage(message) {
       this.messages.push(message)
     },
 
-    clearMessages() {
+    async clearMessages() {
       this.messages = []
     }
   }

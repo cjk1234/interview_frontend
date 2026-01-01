@@ -64,7 +64,7 @@
         <el-form-item label="最大人数" prop="maxParticipants">
           <el-input-number
             v-model="roomForm.maxParticipants"
-            :min="3"
+            :min="2"
             :max="10"
           />
         </el-form-item>

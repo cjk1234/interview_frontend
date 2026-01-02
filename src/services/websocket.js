@@ -70,7 +70,6 @@ class WebSocketService {
         destination: '/app/join',
         body: JSON.stringify({ roomId: roomId })
       });
-      console.log(`已发送加入房间请求: ${roomId}`);
     } else {
       console.warn('STOMP客户端未连接，无法加入房间');
     }
@@ -128,6 +127,31 @@ class WebSocketService {
           console.error('解析用户离开消息失败:', e);
         }
       });
+    }
+  }
+  onRoomStatusChange(callback) {
+    if (!this.stompClient || !this.stompClient.connected) {
+      console.warn('WebSocket 未连接，无法订阅房间状态')
+      return null
+    }
+    
+    const subscription = this.stompClient.subscribe(
+      `/topic/room/${this.roomId}/status`,
+      (message) => {
+        try {
+          const data = JSON.parse(message.body)
+          callback(data)
+        } catch (error) {
+          console.error('解析房间状态消息失败:', error)
+        }
+      }
+    )
+    
+    // 返回取消订阅的函数
+    return {
+      unsubscribe: () => {
+        if (subscription) subscription.unsubscribe()
+      }
     }
   }
 

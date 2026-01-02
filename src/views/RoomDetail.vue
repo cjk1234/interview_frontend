@@ -12,9 +12,17 @@
           <el-button type="primary" @click="handleStartRoom" v-if="canStartRoom">
             开始面试
           </el-button>
-          <el-button type="success" @click="handleCompleteRoom" v-if="canCompleteRoom">
-            结束面试
-          </el-button>
+          <template v-if="room?.status === 'COMPLETED'">
+            <el-button type="info" disabled>
+              <el-icon><Check /></el-icon>
+              已结束
+            </el-button>
+          </template>
+          <template v-else-if="canCompleteRoom">
+            <el-button type="success" @click="handleCompleteRoom">
+              结束面试
+            </el-button>
+          </template>
           <el-button 
             type="warning" 
             @click="toggleVideo" 
@@ -219,8 +227,9 @@
   import { useAuthStore } from '@/stores/auth'
   import { useRoomStore } from '@/stores/room'
   import { webSocketService } from '@/services/websocket'
-  import { ElMessage } from 'element-plus'
+  import { ElMessage, Check } from 'element-plus'
   import { Microphone, VideoPlay, VideoPause, MuteNotification, Menu, Grid } from '@element-plus/icons-vue'
+  import { roomApi } from '@/services/api'
   
   export default {
     name: 'RoomDetailPage',
@@ -269,6 +278,7 @@
         window.addEventListener('beforeunload', handleBeforeUnload)
         isInRoom.value = true
         await setupWebSocket()
+        await roomStore.updateRoom(roomId)
         loadMessages()
       })
 
@@ -330,10 +340,7 @@
         // 取消所有订阅
         subscriptions.value.forEach(sub => sub?.unsubscribe())
         subscriptions.value = []
-        
-        // 断开 WebSocket 连接
         webSocketService.disconnect()
-        // 关闭媒体流
         stopLocalStream()
       })
   
@@ -349,21 +356,37 @@
           })
           
           // 订阅用户加入
-          const userJoinSub = webSocketService.onUserJoin((user) => {
-            ElMessage.info(`${user.userName} 加入了房间`)
-            roomStore.addParticipant(user)
+          const userJoinSub = webSocketService.onUserJoin((participant) => {
+            ElMessage.info(`${participant.userName} 加入了房间`)
+            roomStore.addParticipant(participant)
             roomStore.updateRoom(roomId)
           })
           
           // 订阅用户离开
-          const userLeaveSub = webSocketService.onUserLeave((user) => {
-            ElMessage.info(`${user.userName} 离开了房间`)
-            roomStore.removeParticipant(user.userId)
+          const userLeaveSub = webSocketService.onUserLeave((participant) => {
+            ElMessage.info(`${participant.userName} 离开了房间`)
+            roomStore.removeParticipant(participant)
             roomStore.updateRoom(roomId)
+          })
+
+          const roomStatusSub = webSocketService.onRoomStatusChange((data) => {
+            if (data.roomId === roomId) {
+              // 更新本地状态
+              if (roomStore.currentRoom) {
+                roomStore.currentRoom.status = data.status
+                
+                // 更新对应的时间字段
+                if (data.status === 'ONGOING' && data.startedAt) {
+                  roomStore.currentRoom.startedAt = data.startedAt
+                } else if (data.status === 'COMPLETED' && data.endedAt) {
+                  roomStore.currentRoom.endedAt = data.endedAt
+                }
+              }
+            }
           })
           
           // 保存订阅对象（过滤掉null值）
-          subscriptions.value = [messageSub, userJoinSub, userLeaveSub].filter(Boolean)
+          subscriptions.value = [messageSub, userJoinSub, userLeaveSub, roomStatusSub].filter(Boolean)
         } catch (error) {
           console.error('WebSocket 连接错误：', error)
           ElMessage.error('实时通信连接失败，请刷新页面重试')
@@ -504,7 +527,6 @@
           ElMessage.warning('连接未就绪，请稍后重试')
           return
         }
-        console.log('Sending message:', newMessage.value)
         const message = {
           roomId: roomId,
           userId: userInfo.value.id,
@@ -537,7 +559,7 @@
   
       const handleStartRoom = async () => {
         try {
-          await roomStore.startRoom(roomId)
+          await roomApi.startRoom(roomId)
           ElMessage.success('面试已开始')
         } catch (error) {
           ElMessage.error('开始面试失败')
@@ -546,7 +568,7 @@
   
       const handleCompleteRoom = async () => {
         try {
-          await roomStore.completeRoom(roomId)
+          await roomApi.completeRoom(roomId)
           ElMessage.success('面试已结束')
         } catch (error) {
           ElMessage.error('结束面试失败')
@@ -585,10 +607,11 @@
         remoteParticipants,
         localStream,
         localVideoElement,
-        sendMessage,
+        Check,
         showParticipantList,
         filteredParticipants,
         messageInput,
+        sendMessage,
         handleInputChange,
         selectParticipant,
         handleLeaveRoom,

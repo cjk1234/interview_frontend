@@ -267,7 +267,7 @@
       onMounted(async () => {
         // 添加 beforeunload 事件监听（页面关闭/刷新）
         window.addEventListener('beforeunload', handleBeforeUnload)
-        await joinRoom()
+        isInRoom.value = true
         await setupWebSocket()
         loadMessages()
       })
@@ -336,16 +336,6 @@
         // 关闭媒体流
         stopLocalStream()
       })
-  
-      const joinRoom = async () => {
-        try {
-          // await roomStore.joinRoom(roomId)
-          isInRoom.value = true
-        } catch (error) {
-          ElMessage.error('加入房间失败')
-          router.push('/rooms')
-        }
-      }
   
       const setupWebSocket = async () => {
         try {

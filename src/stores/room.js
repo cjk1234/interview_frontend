@@ -50,7 +50,7 @@ export const useRoomStore = defineStore('room', {
       } else if (this.participants.length === 0) {
         await roomApi.completeRoom(roomId)
         this.currentRoom.status = 'COMPLETED'
-        // this.participants = []
+        this.participants = []
       }
     },
 

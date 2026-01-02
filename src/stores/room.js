@@ -35,7 +35,6 @@ export const useRoomStore = defineStore('room', {
 
     async updateRoom(roomId) {
       const responseRoom = await roomApi.getRoomDetail(roomId)
-      // 使用 Object.assign 或展开运算符确保响应式
       this.currentRoom = responseRoom.data
 
       // 获取参与者

@@ -374,12 +374,12 @@
               // 更新本地状态
               if (roomStore.currentRoom) {
                 roomStore.currentRoom.status = data.status
-                
                 // 更新对应的时间字段
                 if (data.status === 'ONGOING' && data.startedAt) {
                   roomStore.currentRoom.startedAt = data.startedAt
                 } else if (data.status === 'COMPLETED' && data.endedAt) {
                   roomStore.currentRoom.endedAt = data.endedAt
+                  roomStore.clearMessages()
                 }
               }
             }

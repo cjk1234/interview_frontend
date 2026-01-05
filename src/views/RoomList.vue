@@ -150,9 +150,11 @@
 </template>
 
 <script>
-import { ref, onMounted } from 'vue'
+import { ref, onMounted, onUnmounted, computed } from 'vue'
 import { useRouter } from 'vue-router'
 import { useRoomStore } from '@/stores/room'
+import { useAuthStore } from '@/stores/auth'
+import { webSocketService } from '@/services/websocket'
 import { ElMessage } from 'element-plus'
 import { InfoFilled, Clock, CircleCheck } from '@element-plus/icons-vue'
 
@@ -174,6 +176,11 @@ export default {
     const roomFormRef = ref(null)
     const selectedRoom = ref(null)
 
+    const roomListSubscriptions = ref([])
+
+    const authStore = useAuthStore()
+    const userInfo = computed(() => authStore.userInfo)
+
     const roomForm = ref({
       topic: '',
       description: '',
@@ -186,7 +193,60 @@ export default {
 
     onMounted(() => {
       fetchRooms()
+      setupRoomListWebSocket()
     })
+
+    onUnmounted(() => {
+      roomListSubscriptions.value.forEach(sub => sub?.unsubscribe())
+      roomListSubscriptions.value = []
+    })
+
+    const setupRoomListWebSocket = async () => {
+      try {
+        // 注意：这里不传 roomId，因为需要全局监听所有房间
+        await webSocketService.connect()
+        
+        // 订阅房间列表更新
+        const roomUpdateSub = webSocketService.onRoomListUpdate((data) => {
+          updateRoomInList(data)
+        })
+        
+        if (roomUpdateSub) {
+          roomListSubscriptions.value.push(roomUpdateSub)
+        }
+      } catch (error) {
+        console.error('房间列表 WebSocket 连接失败:', error)
+      }
+    }
+
+    const updateRoomInList = (updateData) => {
+      const { eventType, roomId, currentParticipants, status, action, room } = updateData
+
+      if (eventType === 'ROOM_CREATED' && room) {
+        if (userInfo.value?.id === room.creatorId) return
+        rooms.value.unshift(room)
+        return
+      }
+      else if (eventType === 'ROOM_UPDATED') {
+        const index = rooms.value.findIndex(r => r.id === roomId)
+        if (index !== -1) {
+          const updatedRoom = {
+            ...rooms.value[index],
+            currentParticipants,
+            status
+          }
+          rooms.value.splice(index, 1, updatedRoom)
+        }
+        
+        if (selectedRoom.value && selectedRoom.value.id === roomId) {
+          selectedRoom.value = {
+            ...selectedRoom.value,
+            currentParticipants,
+            status
+          }
+        }
+      }
+    }
 
     const fetchRooms = async () => {
       try {
@@ -323,7 +383,10 @@ export default {
         await roomFormRef.value.validate()
         creating.value = true
         
-        const room = await roomStore.createRoom(roomForm.value)
+        await roomStore.createRoom({
+          ...roomForm.value,
+          creatorId: userInfo.value?.id
+        })
         ElMessage.success('房间创建成功')
         createRoomDialogVisible.value = false
         // router.push(`/room/${room.id}`)

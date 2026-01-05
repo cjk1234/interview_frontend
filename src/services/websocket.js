@@ -155,6 +155,26 @@ class WebSocketService {
     }
   }
 
+  onRoomListUpdate(callback) {   
+    const subscription = this.stompClient.subscribe(
+      '/topic/room-list/update',
+      (message) => {
+        try {
+          const data = JSON.parse(message.body)
+          callback(data)
+        } catch (error) {
+          console.error('解析房间列表更新消息失败:', error)
+        }
+      }
+    )
+    
+    return {
+      unsubscribe: () => {
+        if (subscription) subscription.unsubscribe()
+      }
+    }
+  }
+
   disconnect() {
     if (this.stompClient) {
       this.stompClient.deactivate().then(() => {

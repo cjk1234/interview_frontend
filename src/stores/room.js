@@ -15,7 +15,6 @@ export const useRoomStore = defineStore('room', {
       try {
         const response = await roomApi.getAvailableRooms()
         this.rooms = response.data
-        return response.data
       } catch (error) {
         ElMessage.error('获取房间列表失败，请稍后重试')
         throw error
@@ -26,7 +25,6 @@ export const useRoomStore = defineStore('room', {
       try {
         const response = await roomApi.createRoom(roomData)
         this.rooms.push(response.data)
-        return response.data
       } catch (error) {
         ElMessage.error('创建房间失败，请稍后重试')
         throw error

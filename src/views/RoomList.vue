@@ -203,14 +203,10 @@ export default {
 
     const setupRoomListWebSocket = async () => {
       try {
-        // 注意：这里不传 roomId，因为需要全局监听所有房间
         await webSocketService.connect()
-        
-        // 订阅房间列表更新
         const roomUpdateSub = webSocketService.onRoomListUpdate((data) => {
           updateRoomInList(data)
         })
-        
         if (roomUpdateSub) {
           roomListSubscriptions.value.push(roomUpdateSub)
         }

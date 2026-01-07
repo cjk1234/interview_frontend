@@ -32,6 +32,15 @@
             <el-button
               type="primary"
               size="small"
+              color="red"
+              @click="handleDeleteRoom(room)"
+              v-if="isRoomDeletable(room)"
+            >
+              删除房间
+            </el-button>
+            <el-button
+              type="primary"
+              size="small"
               @click="handleJoinRoom(room)"
               :disabled="room.status !== 'WAITING' || room.currentParticipants >= room.maxParticipants"
             >
@@ -49,7 +58,7 @@
 
     <!-- 创建房间对话框 -->
     <el-dialog v-model="createRoomDialogVisible" title="创建面试房间">
-      <el-form :model="roomForm" :rules="roomRules" ref="roomFormRef">
+      <el-form :model="roomForm" :rules="roomRules">
         <el-form-item label="讨论话题" prop="topic">
           <el-input v-model="roomForm.topic" placeholder="请输入讨论话题" />
         </el-form-item>
@@ -173,7 +182,6 @@ export default {
     const createRoomDialogVisible = ref(false)
     const roomDetailVisible = ref(false)
     const creating = ref(false)
-    const roomFormRef = ref(null)
     const selectedRoom = ref(null)
 
     const roomListSubscriptions = ref([])
@@ -216,14 +224,14 @@ export default {
     }
 
     const updateRoomInList = (updateData) => {
-      const { eventType, roomId, currentParticipants, status, action, room } = updateData
+      const { eventType, roomId, currentParticipants, status, room } = updateData
 
       if (eventType === 'ROOM_CREATED' && room) {
-        if (userInfo.value?.id === room.creatorId) return
-        rooms.value.unshift(room)
+        if (userInfo.value?.id !== room.creatorId) {
+          rooms.value.unshift(room)
+        }
         return
-      }
-      else if (eventType === 'ROOM_UPDATED') {
+      } else if (eventType === 'ROOM_UPDATED') {
         const index = rooms.value.findIndex(r => r.id === roomId)
         if (index !== -1) {
           const updatedRoom = {
@@ -240,6 +248,12 @@ export default {
             currentParticipants,
             status
           }
+        }
+      } else if (eventType === 'ROOM_DELETED') {
+        console.log('Removing room with ID:', roomId)
+        rooms.value = rooms.value.filter(r => r.id !== roomId)
+        if (selectedRoom.value && selectedRoom.value.id === roomId) {
+          roomDetailVisible.value = false
         }
       }
     }
@@ -372,20 +386,31 @@ export default {
       }
     }
 
-    const handleCreateRoom = async () => {
-      if (!roomFormRef.value) return
-      
+    const handleDeleteRoom = async (room) => {
       try {
-        await roomFormRef.value.validate()
+        await roomStore.deleteRoom(room.id)
+        ElMessage.success('房间删除成功')
+        // 从本地列表中移除已删除的房间
+        rooms.value = rooms.value.filter(r => r.id !== room.id)
+      } catch (error) {
+        ElMessage.error(error.response?.data?.message || '删除房间失败')
+      }
+    }
+
+    const isRoomDeletable = (room) => {
+      if (!room || !userInfo.value) return false      
+      return room.creatorId == userInfo.value.id && room.currentParticipants === 0 && room.status === 'WAITING'
+    }
+
+    const handleCreateRoom = async () => {    
+      try {
         creating.value = true
-        
         await roomStore.createRoom({
           ...roomForm.value,
           creatorId: userInfo.value?.id
         })
         ElMessage.success('房间创建成功')
         createRoomDialogVisible.value = false
-        // router.push(`/room/${room.id}`)
       } catch (error) {
         ElMessage.error(error.response?.data?.message || '创建房间失败')
       } finally {
@@ -401,7 +426,6 @@ export default {
       creating,
       roomForm,
       roomRules,
-      roomFormRef,
       selectedRoom,
       getStatusType,
       getStatusText,
@@ -415,7 +439,9 @@ export default {
       getStatusTipClass,
       canJoinRoom,
       handleJoinRoom,
-      handleCreateRoom
+      handleCreateRoom,
+      handleDeleteRoom,
+      isRoomDeletable
     }
   }
 }

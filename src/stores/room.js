@@ -51,6 +51,16 @@ export const useRoomStore = defineStore('room', {
       }
     },
 
+    async deleteRoom(roomId) {
+      try {
+        await roomApi.deleteRoom(roomId)
+        this.rooms = this.rooms.filter(room => room.id !== roomId)
+      } catch (error) {
+        ElMessage.error('删除房间失败，请稍后重试')
+        throw error
+      }
+    },
+
     async leaveRoom(roomId) {
       try {
         await roomApi.leaveRoom(roomId)

@@ -47,6 +47,7 @@ export const roomApi = {
   createRoom: (roomData) => apiClient.post('/room/create', null, {
     params: roomData
   }),
+  deleteRoom: (roomId) => apiClient.delete(`/room/${roomId}/delete`),
   joinRoom: (roomId) => apiClient.post(`/room/${roomId}/join`),
   leaveRoom: (roomId) => apiClient.post(`/room/${roomId}/leave`),
   getRoomDetail: (roomId) => apiClient.get(`/room/${roomId}`),

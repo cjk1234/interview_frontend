@@ -1,5 +1,5 @@
 import { Client } from '@stomp/stompjs'; // 导入 Client 类
-import SockJS from 'sockjs-client';
+// import SockJS from 'sockjs-client';
 
 class WebSocketService {
   constructor() {
@@ -11,8 +11,15 @@ class WebSocketService {
 
   connect(roomId) {
     this.roomId = roomId;
+
+    // const protocol = window.location.protocol === 'https:' ? 'wss' : 'ws';
+    // const brokerUrl = `${protocol}://${window.location.host}/api/ws`;
+    const brokerUrl = 'ws://localhost:8080/api/ws'
+
+    // console.log('Connecting to WebSocket broker at:', brokerUrl);
+
     this.stompClient = new Client({
-      webSocketFactory: () => new SockJS('/api/ws'),
+      brokerURL: brokerUrl,
       onConnect: () => {
         this.joinRoom(roomId);
         if (this.resolveConnect) {
@@ -116,11 +123,11 @@ class WebSocketService {
         }
       }
     )
-    return {
-      unsubscribe: () => {
-        if (subscription) subscription.unsubscribe()
-      }
-    }
+    // return {
+    //   unsubscribe: () => {
+    //     if (subscription) subscription.unsubscribe()
+    //   }
+    // }
   }
 
   onRoomListUpdate(callback) {   

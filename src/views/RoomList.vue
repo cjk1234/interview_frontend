@@ -224,7 +224,9 @@ export default {
     }
 
     const updateRoomInList = (updateData) => {
-      const { eventType, roomId, currentParticipants, status, room } = updateData
+      const { eventType, room } = updateData
+      const status = room.status
+      const currentParticipants = room.currentParticipants || 0
 
       if (eventType === 'ROOM_CREATED' && room) {
         if (userInfo.value?.id !== room.creatorId) {
@@ -232,7 +234,7 @@ export default {
         }
         return
       } else if (eventType === 'ROOM_UPDATED') {
-        const index = rooms.value.findIndex(r => r.id === roomId)
+        const index = rooms.value.findIndex(r => r.id === room.id)
         if (index !== -1) {
           const updatedRoom = {
             ...rooms.value[index],
@@ -242,7 +244,7 @@ export default {
           rooms.value.splice(index, 1, updatedRoom)
         }
         
-        if (selectedRoom.value && selectedRoom.value.id === roomId) {
+        if (selectedRoom.value && selectedRoom.value.id === room.id) {
           selectedRoom.value = {
             ...selectedRoom.value,
             currentParticipants,
@@ -250,9 +252,8 @@ export default {
           }
         }
       } else if (eventType === 'ROOM_DELETED') {
-        console.log('Removing room with ID:', roomId)
-        rooms.value = rooms.value.filter(r => r.id !== roomId)
-        if (selectedRoom.value && selectedRoom.value.id === roomId) {
+        rooms.value = rooms.value.filter(r => r.id !== room.id)
+        if (selectedRoom.value && selectedRoom.value.id === room.id) {
           roomDetailVisible.value = false
         }
       }

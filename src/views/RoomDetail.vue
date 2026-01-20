@@ -370,15 +370,16 @@
           })
 
           const roomStatusSub = webSocketService.onRoomStatusChange((data) => {
-            if (data.roomId === roomId) {
+            const { eventType, room } = data
+            if (room.id === roomId) {
               // 更新本地状态
               if (roomStore.currentRoom) {
-                roomStore.currentRoom.status = data.status
+                roomStore.currentRoom.status = room.status
                 // 更新对应的时间字段
-                if (data.status === 'ONGOING' && data.startedAt) {
-                  roomStore.currentRoom.startedAt = data.startedAt
-                } else if (data.status === 'COMPLETED' && data.endedAt) {
-                  roomStore.currentRoom.endedAt = data.endedAt
+                if (room.status === 'ONGOING' && room.startedAt) {
+                  roomStore.currentRoom.startedAt = room.startedAt
+                } else if (room.status === 'COMPLETED' && room.endedAt) {
+                  roomStore.currentRoom.endedAt = room.endedAt
                   roomStore.clearMessages()
                 }
               }

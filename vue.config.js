@@ -29,17 +29,8 @@ module.exports = defineConfig({
         // pathRewrite: {
         //   '^/api/ws': '/ws'
         // },
-        // headers: {
-        //   Origin: 'http://localhost:8080', 
-        //   Referer: 'http://localhost:8080/'
-        // },
         onProxyReqWs: (proxyReq, req, socket) => {
-          // 1. 欺骗后端跨域
           proxyReq.setHeader('Origin', 'http://localhost:8080');
-          
-          // 2. 【关键修复】移除压缩头
-          // 告诉后端：“我不支持压缩，请发原始数据给我”
-          // 这样代理服务器就不用处理复杂的压缩流，避免了 bug
           proxyReq.removeHeader('sec-websocket-extensions');
        }
       }

@@ -337,8 +337,6 @@
       onUnmounted(() => {
         // 移除事件监听器
         window.removeEventListener('beforeunload', handleBeforeUnload)
-        // 取消所有订阅
-        subscriptions.value.forEach(sub => sub?.unsubscribe())
         subscriptions.value = []
         webSocketService.disconnect()
         stopLocalStream()
@@ -389,7 +387,6 @@
           // 保存订阅对象（过滤掉null值）
           subscriptions.value = [messageSub, userJoinSub, userLeaveSub, roomStatusSub].filter(Boolean)
         } catch (error) {
-          console.error('WebSocket 连接错误：', error)
           ElMessage.error('实时通信连接失败，请刷新页面重试')
         }
       }
